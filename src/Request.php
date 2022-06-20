@@ -4,19 +4,36 @@ declare(strict_types=1);
 
 namespace Lilith\HttpFoundation;
 
+use Lilith\Http\HttpMethodsEnum;
+use Lilith\Http\Message\RequestInterface;
+use Lilith\Http\Message\Request as NativeRequest;
+
 class Request
 {
-    public static function createFromGlobals()
+    protected static function getRequestHeaders(): array
     {
-//        $request = self::createRequestFromFactory($_GET, $_POST, [], $_COOKIE, $_FILES, $_SERVER);
-//
-//        if (str_starts_with($request->headers->get('CONTENT_TYPE', ''), 'application/x-www-form-urlencoded')
-//            && \in_array(strtoupper($request->server->get('REQUEST_METHOD', 'GET')), ['PUT', 'DELETE', 'PATCH'])
-//        ) {
-//            parse_str($request->getContent(), $data);
-//            $request->request = new InputBag($data);
-//        }
-//
-//        return $request;
+        $headers = [];
+        foreach($_SERVER as $key => $value) {
+            if (!str_starts_with($key, 'HTTP_')) {
+                continue;
+            }
+
+            $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+            $headers[$header] = $value;
+        }
+
+        return $headers;
+    }
+
+    public static function createFromGlobals(): RequestInterface
+    {
+        $method = $_SERVER['REQUEST_METHOD'];
+        $headers = static::getRequestHeaders();
+        $uri = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http")
+            . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+        $body = file_get_contents('php://input');
+        unset($_SERVER['HTTPS']);
+
+        return new NativeRequest(HttpMethodsEnum::from($method), $uri, $headers, $body);
     }
 }
